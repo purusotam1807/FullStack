@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Character Counter</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 500px;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            resize: none;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .counter {
+            text-align: right;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Character Counter</h2>
+        <div class="input-wrapper">
+            <textarea 
+                id="text-input" 
+                placeholder="Type something here..."
+            ></textarea>
+            <div class="counter" id="char-counter">0 characters</div>
+        </div>
+    </div>
+
+    <script>
+        const textInput = document.getElementById('text-input');
+        const charCounter = document.getElementById('char-counter');
+
+        function updateCounter() {
+            const currentLength = textInput.value.length;
+            charCounter.textContent = `${currentLength} characters`;
+        }
+
+        // Add event listeners
+        textInput.addEventListener('input', updateCounter);
+        textInput.addEventListener('keyup', updateCounter);
+        textInput.addEventListener('paste', updateCounter);
+
+        // Initialize counter
+        updateCounter();
+    </script>
+</body>
+</html>
