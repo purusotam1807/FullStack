@@ -1,1 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Protected Routes with JWT Verification</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; color: #222; }
+    .hidden { display: none; }
+    input, button { padding: 8px; margin: 6px 0; }
+    .card { border: 1px solid #ccc; border-radius: 6px; padding: 20px; max-width: 400px; }
+    .logout { margin-top: 12px; background: #e25b5b; color: white; border: none; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>JWT Protected Route Demo</h1>
 
+  <!-- Login Page -->
+  <div id="loginPage" class="card">
+    <h2>Login</h2>
+    <form id="loginForm">
+      <label>Email:</label><br>
+      <input type="email" id="email" required placeholder="user@example.com"><br>
+      <label>Password:</label><br>
+      <input type="password" id="password" required><br>
+      <button type="submit">Login</button>
+    </form>
+    <p id="loginMsg"></p>
+  </div>
+
+  <!-- Protected Dashboard -->
+  <div id="dashboard" class="card hidden">
+    <h2>Dashboard (Protected)</h2>
+    <p>Welcome, <span id="userEmail"></span>!</p>
+    <p>Account Balance: <span id="balance">--</span></p>
+    <button class="logout" onclick="logout()">Logout</button>
+  </div>
+
+  <script>
+    const API_BASE = '/api'; // backend base URL
+    const TOKEN_KEY = 'access_token';
+    let token = localStorage.getItem(TOKEN_KEY);
+
+    const loginPage = document.getElementById('loginPage');
+    const dashboard = document.getElementById('dashboard');
+    const loginForm = document.getElementById('loginForm');
+    const userEmailEl = document.getElementById('userEmail');
+    const balanceEl = document.getElementById('balance');
+    const loginMsg = document.getElementById('loginMsg');
+
+    // Check token validity on page load
+    async function checkToken() {
+      if (!token) {
+        showLogin();
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/verify`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const user = await res.json();
+          showDashboard(user);
+        } else {
+          logout();
+        }
+      } catch {
+        logout();
+      }
+    }
+
+    // Handle login
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      loginMsg.textContent = 'Logging in...';
+      try {
+        const res = await fetch(`${API_BASE}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (res.ok && data.accessToken) {
+          token = data.accessToken;
+          localStorage.setItem(TOKEN_KEY, token);
+          showDashboard({ email });
+        } else {
+          loginMsg.textContent = 'Invalid credentials.';
+        }
+      } catch (err) {
+        loginMsg.textContent = 'Network error.';
+      }
+    });
+
+    // Show dashboard (protected)
+    async function showDashboard(user) {
+      loginPage.classList.add('hidden');
+      dashboard.classList.remove('hidden');
+      userEmailEl.textContent = user.email || 'User';
+      const res = await fetch(`${API_BASE}/balance`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      balanceEl.textContent = res.ok ? data.balance : 'N/A';
+    }
+
+    // Show login
+    function showLogin() {
+      dashboard.classList.add('hidden');
+      loginPage.classList.remove('hidden');
+    }
+
+    // Logout
+    function logout() {
+      token = null;
+      localStorage.removeItem(TOKEN_KEY);
+      showLogin();
+    }
+
+    // Run on page load
+    checkToken();
+  </script>
+</body>
+</html>
