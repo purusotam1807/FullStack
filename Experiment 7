@@ -1,1 +1,243 @@
 
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Banking API — JWT Auth Demo</title>
+  <style>
+    body{font-family:Inter,Roboto,Arial;max-width:900px;margin:28px auto;padding:16px;color:#222}
+    .card{border:1px solid #eee;padding:16px;border-radius:8px;margin-bottom:16px}
+    input,button,select{padding:8px;border-radius:6px;border:1px solid #ddd}
+    button{cursor:pointer}
+    pre{background:#fafafa;padding:12px;border-radius:6px;overflow:auto}
+    .muted{color:#666;font-size:0.9rem}
+  </style>
+</head>
+<body>
+  <h1>Banking API — JWT Authentication (Demo)</h1>
+  <p class="muted">This page demonstrates how an HTML client can authenticate with a banking API that uses JWTs.</p>
+
+  <div class="card" id="authCard">
+    <h2>Login</h2>
+    <form id="loginForm" onsubmit="event.preventDefault(); login();">
+      <label>Email<br>
+        <input id="email" name="email" type="email" required placeholder="user@example.com"></label>
+      <br><br>
+      <label>Password<br>
+        <input id="password" name="password" type="password" required placeholder="••••••"></label>
+      <br><br>
+      <button type="submit">Login</button>
+      <button type="button" onclick="demoLogin()">Demo Login</button>
+      <button type="button" onclick="clearStoredToken()">Clear Stored Token</button>
+    </form>
+
+    <p class="muted">(Server endpoints expected: <code>POST /api/auth/login</code>, <code>POST /api/auth/refresh</code>, <code>POST /api/auth/logout</code>)</p>
+    <div>
+      <strong>Stored access token:</strong>
+      <pre id="tokenView">(none)</pre>
+    </div>
+  </div>
+
+  <div class="card" id="protectedCard">
+    <h2>Protected actions</h2>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <button onclick="loadAccounts()">Get Accounts (GET /api/accounts)</button>
+      <button onclick="showTransferForm()">Transfer Money (POST /api/transfer)</button>
+      <button onclick="logout()">Logout</button>
+    </div>
+
+    <div id="transferArea" style="margin-top:12px;display:none">
+      <h3>Transfer</h3>
+      <form onsubmit="event.preventDefault(); transfer();">
+        <label>From Account ID<br><input id="fromAcc" required></label><br>
+        <label>To Account ID<br><input id="toAcc" required></label><br>
+        <label>Amount<br><input id="amount" type="number" step="0.01" required></label><br>
+        <button type="submit">Send Transfer</button>
+      </form>
+    </div>
+
+    <h3>Response</h3>
+    <pre id="response">(no action yet)</pre>
+  </div>
+
+  <script>
+    // --------- Configuration (change to match your API) ---------
+    const API_BASE = '/api'; // e.g. 'https://api.example.com'
+
+    // --------- Token storage strategy ---------
+    // For demo we allow storing access token in localStorage so page reloads keep session.
+    // In production prefer: store refresh token in HttpOnly cookie, access token in memory.
+    const STORAGE_KEY = 'banking_access_token';
+    let accessToken = localStorage.getItem(STORAGE_KEY) || null; // keep in memory for quick access
+
+    // Update UI token display
+    function updateTokenView(){
+      const el = document.getElementById('tokenView');
+      el.textContent = accessToken ? accessToken : '(none)';
+    }
+    updateTokenView();
+
+    // --------- Login ---------
+    async function login(){
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      try{
+        const res = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ email, password })
+        });
+
+        const body = await res.json();
+        if(!res.ok){
+          showResponse(body, res.status);
+          return;
+        }
+
+        // Expect response shape: { accessToken: 'ey...', refreshToken?: '...' }
+        accessToken = body.accessToken;
+        // If a refreshToken is returned and you must store it client-side (not recommended), store it securely.
+        // Better: Server sets refresh token as HttpOnly cookie.
+
+        // Persist access token if desired (demo only)
+        localStorage.setItem(STORAGE_KEY, accessToken);
+        updateTokenView();
+        showResponse({ message: 'Logged in' });
+      }catch(err){
+        showResponse({ error: err.message });
+      }
+    }
+
+    // Demo login (bypasses form) -- useful while testing
+    function demoLogin(){
+      // In a real demo you would call the server. Here we simulate a JWT for UI purposes.
+      accessToken = 'demo.jwt.token.sample';
+      localStorage.setItem(STORAGE_KEY, accessToken);
+      updateTokenView();
+      showResponse({ message: 'Demo token set (not a real JWT for server auth)' });
+    }
+
+    function clearStoredToken(){
+      accessToken = null;
+      localStorage.removeItem(STORAGE_KEY);
+      updateTokenView();
+      showResponse({ message: 'Token cleared' });
+    }
+
+    // --------- API fetch wrapper that adds Authorization header ---------
+    async function apiFetch(path, opts = {}){
+      opts.headers = opts.headers || {};
+      if(accessToken){
+        opts.headers['Authorization'] = 'Bearer ' + accessToken;
+      }
+      // default to JSON
+      if(!opts.headers['Content-Type'] && (opts.body && typeof opts.body === 'object')){
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(opts.body);
+      }
+
+      const res = await fetch(API_BASE + path, opts);
+      if(res.status === 401){
+        // token expired or invalid. Try refresh flow.
+        const refreshed = await tryRefreshToken();
+        if(refreshed){
+          // retry original request with new token
+          opts.headers['Authorization'] = 'Bearer ' + accessToken;
+          return fetch(API_BASE + path, opts);
+        }
+        // failed to refresh
+      }
+      return res;
+    }
+
+    // --------- Token refresh example (depends on server implementation) ---------
+    async function tryRefreshToken(){
+      // Best practice: use HttpOnly refresh cookie so client-side JS does NOT hold the refresh token.
+      // If your server supports cookie-based refresh, call refresh endpoint without body and include credentials:
+      // const r = await fetch(`${API_BASE}/auth/refresh`, { method:'POST', credentials:'include' });
+
+      // Example if server returns a new accessToken in JSON (not secure if refresh token is in localStorage)
+      try{
+        const r = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', credentials: 'include' });
+        if(!r.ok) return false;
+        const body = await r.json();
+        if(body.accessToken){
+          accessToken = body.accessToken;
+          localStorage.setItem(STORAGE_KEY, accessToken);
+          updateTokenView();
+          return true;
+        }
+      }catch(e){ console.warn('refresh failed', e); }
+      return false;
+    }
+
+    // --------- Example protected actions ---------
+    async function loadAccounts(){
+      try{
+        const res = await apiFetch('/accounts');
+        const body = await res.json();
+        showResponse(body, res.status);
+      }catch(e){ showResponse({ error: e.message }); }
+    }
+
+    function showTransferForm(){ document.getElementById('transferArea').style.display = 'block'; }
+
+    async function transfer(){
+      const from = document.getElementById('fromAcc').value;
+      const to = document.getElementById('toAcc').value;
+      const amount = parseFloat(document.getElementById('amount').value);
+      try{
+        const res = await apiFetch('/transfer', { method: 'POST', body: { fromAccountId: from, toAccountId: to, amount } });
+        const body = await res.json();
+        showResponse(body, res.status);
+      }catch(e){ showResponse({ error: e.message }); }
+    }
+
+    // Logout: notify server and clear local token
+    async function logout(){
+      try{
+        // If server uses cookie-based refresh tokens: call /auth/logout with credentials to clear cookie
+        await fetch(`${API_BASE}/auth/logout`, { method:'POST', credentials:'include' });
+      }catch(e){ /* ignore */ }
+      accessToken = null; localStorage.removeItem(STORAGE_KEY); updateTokenView(); showResponse({ message: 'Logged out' });
+    }
+
+    // --------- Helpers ---------
+    function showResponse(obj, status){
+      const pre = document.getElementById('response');
+      let text = '';
+      if(status) text += `HTTP ${status}\n`;
+      try{ text += JSON.stringify(obj, null, 2); }
+      catch(e){ text += String(obj); }
+      pre.textContent = text;
+    }
+
+    // On page load, optionally verify token by calling a safe endpoint
+    (async function(){
+      if(accessToken){
+        try{
+          // quick check: call a lightweight protected endpoint to confirm token validity
+          const r = await apiFetch('/auth/me');
+          if(r.ok){ console.log('token valid'); }
+          else if(r.status === 401){ console.log('token invalid or expired'); }
+        }catch(e){ console.warn(e); }
+      }
+    })();
+  </script>
+
+  <hr>
+  <section class="muted">
+    <h4>Server-side: what the API endpoints should do</h4>
+    <ol>
+      <li><strong>POST /api/auth/login</strong> — authenticate user credentials. Respond with <code>{ accessToken, refreshToken? }</code> or set HttpOnly refresh cookie and return access token.</li>
+      <li><strong>POST /api/auth/refresh</strong> — validate refresh token (from HttpOnly cookie or request body), issue new access token (and optionally new refresh token).</li>
+      <li><strong>POST /api/auth/logout</strong> — invalidate refresh token (server-side) and clear cookie.</li>
+      <li>Protected endpoints (e.g., <code>GET /api/accounts</code>, <code>POST /api/transfer</code>) must check Authorization header: <code>Bearer &lt;token&gt;</code> and verify token signature, expiration, scopes/claims.</li>
+    </ol>
+
+    <h4>JWT claim suggestions</h4>
+    <p class="muted">Include <code>sub</code> (user id), <code>iat</code>, <code>exp</code> (short lived), and optionally <code>roles</code> or <code>scope</code> to control access to endpoints.</p>
+  </section>
+</body>
+</html>
