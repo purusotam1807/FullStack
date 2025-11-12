@@ -1,1 +1,251 @@
+<!--
+Student Management System - HTML views for an MVC app
+Files included below (copy each into separate files in your project):
+  - views/_header.html    -> common header/nav
+  - views/_footer.html    -> common footer
+  - views/index.html      -> list students (GET /students)
+  - views/create.html     -> create form (GET /students/create)
+  - views/edit.html       -> edit form (GET /students/:id/edit)
+  - views/show.html       -> student details (GET /students/:id)
+  - public/css/styles.css -> shared styles
+  - public/js/main.js     -> client-side JS (validation + delete confirmation)
 
+These are plain, framework-agnostic HTML templates. In your MVC server (e.g., Express, Laravel, ASP.NET, Spring), render these views and supply `students`, `student`, and form action URLs as appropriate.
+-->
+
+<!-- views/_header.html -->
+<header>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Student Management</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <nav class="nav">
+    <div class="container">
+      <a class="brand" href="/students">StudentMS</a>
+      <ul class="nav-links">
+        <li><a href="/students">All Students</a></li>
+        <li><a href="/students/create" class="btn">Add Student</a></li>
+      </ul>
+    </div>
+  </nav>
+</header>
+
+<!-- views/_footer.html -->
+<footer class="footer">
+  <div class="container">
+    <small>&copy; <span id="year"></span> Student Management System</small>
+  </div>
+  <script src="/js/main.js"></script>
+</footer>
+
+<!-- views/index.html -->
+<!doctype html>
+<html lang="en">
+  <!-- include _header.html -->
+  <body>
+    <main class="container">
+      <h1>Students</h1>
+
+      <!-- server should loop over `students` array -->
+      <!-- Example using template placeholders: replace with your templating engine syntax -->
+      <!-- START STUDENT LIST -->
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Age</th>
+            <th>Class</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Example row (repeat for each student) -->
+          <!-- Replace {{students}} and {{student.*}} with your template engine variables -->
+          <!--
+          <% students.forEach(function(student) { %>
+            <tr>
+              <td><%= student.id %></td>
+              <td><a href="/students/<%= student.id %>"><%= student.name %></a></td>
+              <td><%= student.age %></td>
+              <td><%= student.className %></td>
+              <td>
+                <a class="btn small" href="/students/<%= student.id %>/edit">Edit</a>
+                <form class="inline-form" method="POST" action="/students/<%= student.id %>?_method=DELETE" onsubmit="return confirmDelete();">
+                  <button class="btn danger small" type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+          -->
+
+          <!-- Static sample row for reference -->
+          <tr>
+            <td>1</td>
+            <td><a href="/students/1">Amit Singh</a></td>
+            <td>16</td>
+            <td>10th</td>
+            <td>
+              <a class="btn small" href="/students/1/edit">Edit</a>
+              <form class="inline-form" method="POST" action="/students/1?_method=DELETE" onsubmit="return confirmDelete();">
+                <button class="btn danger small" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+
+    </main>
+    <!-- include _footer.html -->
+  </body>
+</html>
+
+<!-- views/create.html -->
+<!doctype html>
+<html lang="en">
+  <!-- include _header.html -->
+  <body>
+    <main class="container">
+      <h1>Add Student</h1>
+      <!-- server renders form; POST to /students -->
+      <form id="studentForm" method="POST" action="/students" onsubmit="return validateForm();">
+        <label for="name">Full name</label>
+        <input id="name" name="name" type="text" placeholder="e.g. Priya Sharma" required maxlength="100">
+
+        <label for="age">Age</label>
+        <input id="age" name="age" type="number" min="3" max="100" required>
+
+        <label for="class">Class / Grade</label>
+        <input id="class" name="className" type="text" required>
+
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email">
+
+        <div class="form-actions">
+          <button class="btn" type="submit">Save</button>
+          <a class="btn ghost" href="/students">Cancel</a>
+        </div>
+      </form>
+    </main>
+    <!-- include _footer.html -->
+  </body>
+</html>
+
+<!-- views/edit.html -->
+<!doctype html>
+<html lang="en">
+  <!-- include _header.html -->
+  <body>
+    <main class="container">
+      <h1>Edit Student</h1>
+      <!-- server pre-fills values from `student` -->
+      <form id="studentForm" method="POST" action="/students/{{student.id}}?_method=PUT" onsubmit="return validateForm();">
+        <label for="name">Full name</label>
+        <input id="name" name="name" type="text" value="{{student.name}}" required maxlength="100">
+
+        <label for="age">Age</label>
+        <input id="age" name="age" type="number" value="{{student.age}}" min="3" max="100" required>
+
+        <label for="class">Class / Grade</label>
+        <input id="class" name="className" type="text" value="{{student.className}}" required>
+
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" value="{{student.email}}">
+
+        <div class="form-actions">
+          <button class="btn" type="submit">Update</button>
+          <a class="btn ghost" href="/students">Cancel</a>
+        </div>
+      </form>
+    </main>
+    <!-- include _footer.html -->
+  </body>
+</html>
+
+<!-- views/show.html -->
+<!doctype html>
+<html lang="en">
+  <!-- include _header.html -->
+  <body>
+    <main class="container">
+      <h1>Student details</h1>
+
+      <!-- Render student fields -->
+      <dl class="details">
+        <dt>ID</dt>
+        <dd>{{student.id}}</dd>
+
+        <dt>Name</dt>
+        <dd>{{student.name}}</dd>
+
+        <dt>Age</dt>
+        <dd>{{student.age}}</dd>
+
+        <dt>Class</dt>
+        <dd>{{student.className}}</dd>
+
+        <dt>Email</dt>
+        <dd>{{student.email}}</dd>
+      </dl>
+
+      <div class="form-actions">
+        <a class="btn" href="/students/{{student.id}}/edit">Edit</a>
+        <a class="btn ghost" href="/students">Back</a>
+      </div>
+    </main>
+    <!-- include _footer.html -->
+  </body>
+</html>
+
+<!-- public/css/styles.css -->
+/* Basic, clean styles - put into public/css/styles.css */
+:root{ --accent:#4064f5; --muted:#666 }
+*{box-sizing:border-box}
+body{font-family:Inter,Segoe UI,Roboto,Arial,sans-serif; margin:0; color:#222}
+.container{max-width:980px;margin:32px auto;padding:0 16px}
+.nav{background:#fafafa;border-bottom:1px solid #eee}
+.nav .container{display:flex;align-items:center;justify-content:space-between;padding:12px 16px}
+.brand{font-weight:700;color:var(--accent);text-decoration:none}
+.nav-links{list-style:none;margin:0;padding:0;display:flex;gap:12px}
+.nav-links a{color:#333;text-decoration:none}
+h1{margin:12px 0 20px}
+.table{width:100%;border-collapse:collapse;margin-bottom:24px}
+.table th,.table td{padding:10px 12px;border:1px solid #eee;text-align:left}
+.btn{display:inline-block;padding:8px 12px;border-radius:6px;background:var(--accent);color:#fff;text-decoration:none;border:none;cursor:pointer}
+.btn.ghost{background:#f5f6fb;color:#333}
+.btn.small{padding:6px 8px;font-size:0.9rem}
+.btn.danger{background:#e45b5b}
+.inline-form{display:inline-block;margin:0}
+label{display:block;margin:8px 0 4px;font-weight:600}
+input[type=text],input[type=number],input[type=email],select,textarea{width:100%;padding:8px;border:1px solid #ddd;border-radius:6px}
+.form-actions{margin-top:16px;display:flex;gap:8px}
+.details{display:grid;grid-template-columns:150px 1fr;gap:8px}
+.footer{border-top:1px solid #eee;padding:12px 0;text-align:center;margin-top:32px}
+
+/* responsive */
+@media(max-width:600px){.nav .container{flex-direction:column;gap:8px}.details{grid-template-columns:1fr}}
+
+<!-- public/js/main.js -->
+// Basic client-side validation + footer year + delete confirm
+(function(){
+  function ready(fn){ if(document.readyState!='loading')fn(); else document.addEventListener('DOMContentLoaded',fn); }
+
+  ready(function(){
+    var yearEl = document.getElementById('year'); if(yearEl) yearEl.textContent = new Date().getFullYear();
+  });
+
+  window.validateForm = function(){
+    var name = document.getElementById('name');
+    var age = document.getElementById('age');
+    if(!name || !age) return true; // no form on page
+    if(name.value.trim().length < 2){ alert('Please enter a valid name (at least 2 characters).'); name.focus(); return false; }
+    var a = parseInt(age.value,10);
+    if(Number.isNaN(a) || a < 3 || a > 100){ alert('Please enter a valid age between 3 and 100.'); age.focus(); return false; }
+    return true;
+  }
+
+  window.confirmDelete = function(){
+    return confirm('Delete this student? This action cannot be undone.');
+  }
+})();
